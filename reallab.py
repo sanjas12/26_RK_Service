@@ -5,10 +5,13 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QGr
     QVBoxLayout, QGridLayout, QLabel, QFileDialog, QListWidget, QComboBox, QMainWindow, \
     QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QDesktopWidget
 # from win32api import GetFiletitleInfo
-from config.config import NAME_REALLAB, LIST_FILE
+from config.config import NAME_REALLAB, LIST_FILE, SERVER_HOST
+from pyModbusTCP.client import ModbusClient
+
+cl = ModbusClient(host=SERVER_HOST)
 
 class MainWindow(QMainWindow):
-    cycle_plc = 0.01
+    # cycle_plc = 0.01
 
     def __init__(self, title: str = '') -> None:
         super().__init__()
@@ -39,6 +42,9 @@ class MainWindow(QMainWindow):
 
         btn_mac = QPushButton('Change MAC')
         btn_mac.clicked.connect(self.change_mac)
+
+        btn_read_mac = QPushButton('Read MAC')
+        btn_read_mac.clicked.connect(self.read_mac)
         
         list_module = ['NLS-16DI-Ethernet', 'NLS-16DO-Ethernet', 'NLS-8R-Ethernet']
         self.combobox_module = QComboBox()
@@ -56,6 +62,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(QLabel('Ввод заводского номера модуля'))
         main_layout.addWidget(self.combobox_number)
         main_layout.addWidget(btn_mac)
+        main_layout.addWidget(btn_read_mac)
 
         wid = QWidget(self)
         self.setCentralWidget(wid)
@@ -63,17 +70,26 @@ class MainWindow(QMainWindow):
         
     def change_mac(self) -> None:
         self.log_message()
+        self.dialog_box()
+        
+    def read_mac(self) -> None:
+        mac = cl.read_holding_registers(1, 8)
+        print(mac)
+    
+        # self.log_message()
+        # self.dialog_box()
 
     def log_message(self) -> None:
         """
         Clear all old signals and insert new signals to QTable(Список сигналов)
         """
-        module = self.combobox_module.currentText()
+        module = self.combobox_module.currentText().split()
         num = self.combobox_number.currentText()
-        print(f'{module} Ser.:{num} -> set MAC {self.dict_module[num]}')
+        print(f'{module} Ser.:{num} -> set MAC {self.dict_module[num]}'.split())
 
-    def dialog_box(self, text: str) -> None:
-        QMessageBox.information(self, 'TG_info', text, QMessageBox.StandardButton.Ok)
+    def dialog_box(self) -> None:
+        QMessageBox.information(self, QMessageBox.StandardButton.Ok)
+    
 
 def main():
     global app
