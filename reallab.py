@@ -5,10 +5,10 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QGr
     QVBoxLayout, QGridLayout, QLabel, QFileDialog, QListWidget, QComboBox, QMainWindow, \
     QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QDesktopWidget
 # from win32api import GetFiletitleInfo
-from config.config import NAME_REALLAB, LIST_FILE, SERVER_HOST
+from config.config import NAME_REALLAB, LIST_FILE, SERVER_HOST, SERVER_DEFAULT, RAW_FILE, ENCODING
 from pyModbusTCP.client import ModbusClient
-
-cl = ModbusClient(host=SERVER_HOST)
+from collections import namedtuple
+from data_reallab import Module
 
 class MainWindow(QMainWindow):
     # cycle_plc = 0.01
@@ -16,23 +16,27 @@ class MainWindow(QMainWindow):
     def __init__(self, title: str = '') -> None:
         super().__init__()
         self.df = None
-        self.ready_plot = False
         self.files, self.extension = None, None
-        self.base_signals, self.secondary_signals = [], []
-        self.dict_x_axe, self.dict_base_axe, self.dict_secondary_axe = {}, {}, {}
-        self.field_name = ("Основная Ось", "Вспомогательная Ось", "Ось X (Времени)")
         self.title = f'{NAME_REALLAB}  {title}'
         self.width = 450
         self.height = 200
         self.dict_module = dict()
-        with open(LIST_FILE, '+r', encoding='UTF-8') as f:
-            for line in f.readlines():
-                print(line)
-                num, mac = line.split(':')
-                if num not in self.dict_module:
-                    self.dict_module[num] = mac
-
+        # self.dict_module_name = namedtuple('Module-name', ('NLS-16DI', 'NLS-16DO', 'NLS-8R'))
+        # with open(LIST_FILE, '+r', encoding='UTF-8') as f:
+            # for i, line in enumerate(f.readlines()):
+                # if i < 1:
+                    # continue
+                # print(line)
+                # print(line.split('|'))
+                # num, mac = line.split('|')
+                # if num not in self.dict_module:
+                #     self.dict_module[num] = mac
+        self.cl = ModbusClient(host=SERVER_DEFAULT)
+        self.create_list()
         self.setup_ui(self.title)
+        # print(self.dict_module)
+        print(len(self.dict_module))
+        print(self.dict_module.values())
 
     def setup_ui(self, title) -> None:
         # qtRectangle = self.frameGeometry()   # получение размеров окна 
@@ -46,9 +50,9 @@ class MainWindow(QMainWindow):
         btn_read_mac = QPushButton('Read MAC')
         btn_read_mac.clicked.connect(self.read_mac)
         
-        list_module = ['NLS-16DI-Ethernet', 'NLS-16DO-Ethernet', 'NLS-8R-Ethernet']
+        # list_module = ['NLS-16DI-Ethernet', 'NLS-16DO-Ethernet', 'NLS-8R-Ethernet']
         self.combobox_module = QComboBox()
-        self.combobox_module.addItems(list_module)
+        self.combobox_module.addItems(self.dict_module.keys())
         self.combobox_module.setCurrentIndex(1)
 
         self.combobox_number = QComboBox()
@@ -71,11 +75,32 @@ class MainWindow(QMainWindow):
     def change_mac(self) -> None:
         self.log_message()
         self.dialog_box()
-        
+
+    def create_list(self):
+        with open(RAW_FILE, '+r', encoding=ENCODING) as f:
+            for i, line in enumerate(f.readlines()):
+                if line.startswith('#'):
+                    continue
+                if len(line) > 1 :
+                    # print(line[19])
+                    mod, ser, mac = line.strip().replace('№', '').split('|')
+                    if mod == None:
+                        continue
+                    else:
+                        self.dict_module.setdefault(mod)
+                        # print(self.dict_module)
+                        self.dict_module[mod] = {ser:mac}
+                    # print(mod, ser, mac)
+            print(self.dict_module)
+
     def read_mac(self) -> None:
-        mac = cl.read_holding_registers(1, 8)
+        mac = self.cl.read_holding_registers(0x00d4, 4)     # - версия программы
         print(mac)
     
+        ip = self.cl.read_holding_registers(0x0100, 2)     # - IP-adres только в Init
+        print(ip)
+    
+        
         # self.log_message()
         # self.dialog_box()
 
