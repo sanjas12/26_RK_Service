@@ -5,19 +5,19 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QGr
     QVBoxLayout, QGridLayout, QLabel, QFileDialog, QListWidget, QComboBox, QMainWindow, \
     QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QDesktopWidget
 # from win32api import GetFiletitleInfo
-from config.config import NAME_REALLAB, LIST_FILE, SERVER_HOST, SERVER_DEFAULT, RAW_FILE, ENCODING
+import config.config as cnf
 from pyModbusTCP.client import ModbusClient
 from collections import namedtuple
 # from data_reallab import Module
+from connect_module import ConnectModule 
 
 class MainWindow(QMainWindow):
-    # cycle_plc = 0.01
 
     def __init__(self, title: str = '') -> None:
         super().__init__()
         self.df = None
         self.files, self.extension = None, None
-        self.title = f'{NAME_REALLAB}  {title}'
+        self.title = f'{cnf.MODULE_NAME}  {title}'
         self.width = 450
         self.height = 200
         self.dict_module = dict()
@@ -31,27 +31,26 @@ class MainWindow(QMainWindow):
                 # num, mac = line.split('|')
                 # if num not in self.dict_module:
                 #     self.dict_module[num] = mac
-        self.cl = ModbusClient(host=SERVER_DEFAULT)
-        self.create_list()
+        self.cl = ConnectModule()
+        # self.read_database()
+        # self.connect_to_module()
         self.setup_ui(self.title)
-        # print(self.dict_module)
-        # print(len(self.dict_module))
-        print(self.dict_module.values())
-
+    
     def setup_ui(self, title) -> None:
         # qtRectangle = self.frameGeometry()   # получение размеров окна 
         centerPoint = QDesktopWidget().availableGeometry().center()  # центр экрана
         self.setGeometry(centerPoint.x(), centerPoint.y(), self.width, self.height)
         self.setWindowTitle(title)
 
+        # первый слой 
         btn_mac = QPushButton('Change MAC')
         btn_mac.clicked.connect(self.change_mac)
-
-        btn_read_mac = QPushButton('Read MAC')
-        btn_read_mac.clicked.connect(self.read_mac)
         
-        btn_dhcp_off = QPushButton('dhcp_off')
+        btn_dhcp_off = QPushButton('DHCP off')
         btn_dhcp_off.clicked.connect(self.dhcp_off)
+
+        btn_info = QPushButton('Get info module')
+        btn_info.clicked.connect(self.get_info_module)
         
         # list_module = ['NLS-16DI-Ethernet', 'NLS-16DO-Ethernet', 'NLS-8R-Ethernet']
         self.combobox_module = QComboBox()
@@ -62,52 +61,65 @@ class MainWindow(QMainWindow):
         self.combobox_number.addItems(self.dict_module.keys())
         self.combobox_number.setCurrentIndex(1)
 
+        fisrt_lay = QVBoxLayout()
+        fisrt_lay.addWidget(QLabel('Выбор названия модуля'))
+        fisrt_lay.addWidget(self.combobox_module)
+        fisrt_lay.addWidget(QLabel('Ввод заводского номера модуля'))
+        fisrt_lay.addWidget(self.combobox_number)
+        fisrt_lay.addWidget(btn_mac)
+        fisrt_lay.addWidget(btn_dhcp_off)
+        fisrt_lay.addWidget(btn_info)
+        
+        self.first_GroupBox = QGroupBox()
+        self.first_GroupBox.setLayout(fisrt_lay)
+        
+        # второй слой 
+        self.ql_info = QLabel()
+        self.second_lay = QHBoxLayout()
+        self.second_lay.addWidget(self.ql_info)
+        self.second_GroupBox = QGroupBox()
+        self.second_GroupBox.setLayout(self.second_lay)
+
         # main_layout
         main_layout = QVBoxLayout()
-        main_layout.addWidget(QLabel('Выбор названия модуля'))
-        main_layout.addWidget(self.combobox_module)
-        main_layout.addWidget(QLabel('Ввод заводского номера модуля'))
-        main_layout.addWidget(self.combobox_number)
-        main_layout.addWidget(btn_mac)
-        main_layout.addWidget(btn_read_mac)
-        main_layout.addWidget(btn_dhcp_off)
+        main_layout.addWidget(self.first_GroupBox)
+        main_layout.addWidget(self.second_GroupBox)
 
         wid = QWidget(self)
         self.setCentralWidget(wid)
         wid.setLayout(main_layout)
-        
+
+    def read_database(self):
+                with open(cnf.RAW_FILE, '+r', encoding=cnf.ENCODING) as f:
+                    for i, line in enumerate(f.readlines()):
+                        if line.startswith('#'):
+                            continue
+                        if len(line) > 1 :
+                            # print(line[19])
+                            mod, ser, mac = line.strip().replace('№', '').split('|')
+                            if mod == None:
+                                continue
+                            else:
+                                self.dict_module.setdefault(mod)
+                                self.dict_module[mod] = {ser:mac}
+                                # print(mod, ser, mac)
+                                # Module(mod, ser, mac)
+                    print(f'items in {cnf.RAW_FILE}-> {i}')
+
     def change_mac(self) -> None:
-        self.log_message()
-        self.dialog_box()
+        self.cl.change_mac()
+        # self.log_message()
+        # self.dialog_box()
 
-    def create_list(self):
-        with open(RAW_FILE, '+r', encoding=ENCODING) as f:
-            for i, line in enumerate(f.readlines()):
-                if line.startswith('#'):
-                    continue
-                if len(line) > 1 :
-                    # print(line[19])
-                    mod, ser, mac = line.strip().replace('№', '').split('|')
-                    if mod == None:
-                        continue
-                    else:
-                        self.dict_module.setdefault(mod)
-                        self.dict_module[mod] = {ser:mac}
-                        # print(mod, ser, mac)
-                        # Module(mod, ser, mac)
-            print('items->', i)
+    def dhcp_off(self) -> None:
+        self.cl.dhcp_off()
+        # self.log_message()
+        # self.dialog_box()
 
-    def read_mac(self) -> None:
-        mac = self.cl.read_holding_registers(0x00d4, 4)     # - версия программы
-        print(mac)
+    def get_info_module(self):
+        # self.cl.connect_to_module()
+        self.ql_info.setText(self.cl.get_info_module())
     
-        ip = self.cl.read_holding_registers(0x0100, 2)     # - IP-adres только в Init
-        print(ip)
-
-    def dhcp_off(self):
-        dhcp = self.cl.read_holding_registers(266, 1)     # - dhcp_off только в Init
-        print(dhcp)
- 
     def log_message(self) -> None:
         """
         Clear all old signals and insert new signals to QTable(Список сигналов)
