@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QGr
 from config.config import NAME_REALLAB, LIST_FILE, SERVER_HOST, SERVER_DEFAULT, RAW_FILE, ENCODING
 from pyModbusTCP.client import ModbusClient
 from collections import namedtuple
-from data_reallab import Module
+# from data_reallab import Module
 
 class MainWindow(QMainWindow):
     # cycle_plc = 0.01
@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         self.create_list()
         self.setup_ui(self.title)
         # print(self.dict_module)
-        print(len(self.dict_module))
+        # print(len(self.dict_module))
         print(self.dict_module.values())
 
     def setup_ui(self, title) -> None:
@@ -49,6 +49,9 @@ class MainWindow(QMainWindow):
 
         btn_read_mac = QPushButton('Read MAC')
         btn_read_mac.clicked.connect(self.read_mac)
+        
+        btn_dhcp_off = QPushButton('dhcp_off')
+        btn_dhcp_off.clicked.connect(self.dhcp_off)
         
         # list_module = ['NLS-16DI-Ethernet', 'NLS-16DO-Ethernet', 'NLS-8R-Ethernet']
         self.combobox_module = QComboBox()
@@ -67,6 +70,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.combobox_number)
         main_layout.addWidget(btn_mac)
         main_layout.addWidget(btn_read_mac)
+        main_layout.addWidget(btn_dhcp_off)
 
         wid = QWidget(self)
         self.setCentralWidget(wid)
@@ -88,10 +92,10 @@ class MainWindow(QMainWindow):
                         continue
                     else:
                         self.dict_module.setdefault(mod)
-                        # print(self.dict_module)
                         self.dict_module[mod] = {ser:mac}
-                    # print(mod, ser, mac)
-            print(self.dict_module)
+                        # print(mod, ser, mac)
+                        # Module(mod, ser, mac)
+            print('items->', i)
 
     def read_mac(self) -> None:
         mac = self.cl.read_holding_registers(0x00d4, 4)     # - версия программы
@@ -99,11 +103,11 @@ class MainWindow(QMainWindow):
     
         ip = self.cl.read_holding_registers(0x0100, 2)     # - IP-adres только в Init
         print(ip)
-    
-        
-        # self.log_message()
-        # self.dialog_box()
 
+    def dhcp_off(self):
+        dhcp = self.cl.read_holding_registers(266, 1)     # - dhcp_off только в Init
+        print(dhcp)
+ 
     def log_message(self) -> None:
         """
         Clear all old signals and insert new signals to QTable(Список сигналов)

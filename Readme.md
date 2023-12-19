@@ -32,3 +32,7 @@ reallab - для смены MAC адреса Вш модулей
 • DHCP – включен;
 • логин для входа в веб-интерфейс – admin;
 • пароль для входа в веб-интерфейс – admin.
+
+
+
+https://realpython.com/python-data-classes/   - для dataclass
