@@ -1,0 +1,8 @@
+1. Traceback (most recent call last):
+  File "h:/My_Works/Python/26_RK_Service/reallab.py", line 142, in change_mac
+    self.cl.change_mac()
+  File "h:\My_Works\Python\26_RK_Service\connect_module.py", line 110, in change_mac
+    write_ok = self.cl.write_multiple_registers(__class__.mac_addr, mac)
+  File "C:\Users\OViK\AppData\Local\Programs\Python\Python38\lib\site-packages\pyModbusTCP\client.py", line 748, in write_multiple_registers
+    regs_val_str += struct.pack('>H', reg)
+struct.error: required argument is not an integer

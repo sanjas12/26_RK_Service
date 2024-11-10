@@ -10,6 +10,7 @@ reallab - для смены MAC адреса Вш модулей
 >=Python 3.8.10
 
 ### Usage
+reallab.py - программа для опроса модулей ввода/ввывода фирмы reallab
 
 ### TODO
 Вынести GUI в отдельный класс
@@ -36,3 +37,25 @@ reallab - для смены MAC адреса Вш модулей
 
 
 https://realpython.com/python-data-classes/   - для dataclass
+https://realpython.com/python-sockets/#tcp-sockets - server-client
+
+python -m pip  install -r requirements.txt --no-index -f h:\\temp\\python_Library
+
+
+0001 0000 0017 0110 0320 0008 104D 4143 3AAA 2EBB 2ECC 2EDD 2EEE 2EFF 2E
+000100000017011003200008104D41433AAA2EBB2ECC2EDD2EEE2EFF2E
+b'\x00\x01\x00\x00\x00\x17\x01\x10\x03 \x00\x08\x10MAC:\xaa.\xbb.\xcc.\xdd.\xee.\xff.'
+
+
+
+
+Ваня
+
+new_ip -> 0001 0000 000B 0110 0100 0002 04C0 A800 01 (192.168.0.1)
+new_ip -> 0001 0000 000B 0110 0100 0002 04C0 A800 63 (192.168.0.99)
+new_ip -> 0001 0000 000B 0110 0100 0002 04C0 A80A 01 (192.168.10.1)
+new_ip -> 0001 0000 000B 0110 0100 0002 04C0 A80A 0B (192.168.10.11)
+
+new_mac -> 0001 0000 0017 0110 0320 0008 104D 4143 3A70 2EB3 2ED5 2E22 2E34 2E6F 2E (70-B3-D5-22-34-6F)
+new_mac -> 0001 0000 0017 0110 0320 0008 104D 4143 3A70 2EB3 2ED5 2E22 2E35 2E6F 2E (70-B3-D5-22-35-6F)
+
