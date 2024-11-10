@@ -1,5 +1,5 @@
 import config.config as cnf
-from pyModbusTCP.client import ModbusClient
+from pyModbus.client import ModbusClient
 import config.config as cnf
 import time
 from binascii import unhexlify
