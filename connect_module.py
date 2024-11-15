@@ -1,5 +1,5 @@
 import config.config as cnf
-from pyModbus.client import ModbusClient
+from pymodbus.client import ModbusTcpClient
 import config.config as cnf
 import time
 from binascii import unhexlify
@@ -12,37 +12,31 @@ class ConnectModule:
     mac_addr = 262
     dhcp_addr = 266
 
-
-    def __init__(self, host=cnf.SERVER_HOST):
+    def __init__(self, host=cnf.SERVER_HOST, port=cnf.SERVER_PORT, timeout=cnf.TIME_TO_CONNECT):
         self.msg = ''
-        self.cl_is_ok = False
-        self.con_is_ok = False
-        try:
-            self.cl = ModbusClient(cnf.SERVER_HOST, cnf.SERVER_PORT, timeout=cnf.TIME_TO_CONNECT)
-            print(f'Connection {cnf.SERVER_HOST} {cnf.SERVER_PORT} -> created sucsecc')
-            self.cl_is_ok = True
-        except TypeError:
-            print(f"T -> Error with host:{host}  or port:{cnf.SERVER_PORT} parametrs")
-        except ValueError:
-            print(f"V -> Error with host:{host}  or port:{cnf.SERVER_PORT} parametrs")
-        self.connect_to_module()
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+        self.cl = ModbusTcpClient(host=self.host, port=self.port, timeout=self.timeout)
+        self.cl.connect() 
+        if self.cl.connected:
+            print(f'Connected  to {self.host}:{cnf.SERVER_PORT}:{cnf.MODULE_NAME}')
+        # self.is_connected()
 
-    def connect_to_module(self) -> None:
-        if self.cl_is_ok:
-            if not self.cl.open():
-                self.con_is_ok = False
-                print(f'do not connect {cnf.SERVER_HOST} + {cnf.SERVER_PORT} + {cnf.MODULE_NAME}')
-            else:
-                self.con_is_ok = True
-                print("Connect is OK")
-        else:
-            print('Connect is Not OK')
+    # def is_connected(self):
+    #     if self.cl.connected:
+    #         print(f'Connected  to {self.host}:{cnf.SERVER_PORT}:{cnf.MODULE_NAME}')
+    #         return True
+    #     else:
+    #         print(f'do not connect {self.host}:{cnf.SERVER_PORT}:{cnf.MODULE_NAME}')
+    #         return False
     
+
     def get_info_module(self):
-        if self.cl_is_ok:
-            name_info = self.cl.read_holding_registers(__class__.name_addr, 4)
-            ver_info = self.cl.read_holding_registers(__class__.ver_addr, 4)     
-            ip_info = self.cl.read_holding_registers(__class__.ip_addr, 2)
+        if self.cl.connected:
+            name_info = self.cl.read_holding_registers(__class__.name_addr, count=4)
+            ver_info = self.cl.read_holding_registers(__class__.ver_addr, count=4)     
+            ip_info = self.cl.read_holding_registers(__class__.ip_addr, count=2)
             ip_adrr = []
             if ip_info:
                 for char in ip_info:
@@ -56,7 +50,7 @@ class ConnectModule:
                 else:
                     dhcp_info = 'вкл'
             else:
-                print('нет данныз о DHCP')
+                print('нет данныx о DHCP')
 
             name_info = ''.join([''.join(map(chr, self.bytess(char))) for char in name_info])
             ver_info = ''.join([''.join(map(chr, self.bytess(char))) for char in ver_info])
@@ -75,7 +69,7 @@ class ConnectModule:
         return divmod((integer), 0x100)
 
     def change_mac(self) -> None:
-        if self.cl_is_ok:
+        if self.cl.connected:
             # tran = 0x0001
             # pro_id =0x0000
             # length = 0x0017     # 23 байта
@@ -118,7 +112,7 @@ class ConnectModule:
             # print(example_bytes)  
             # print(len(example_bytes))
 
-            write_ok = self.cl.write_multiple_registers(__class__.mac_addr, mac_bytes)
+            write_ok = self.cl.write_registers(__class__.mac_addr, mac_bytes)
             # write_ok = self.cl.write_single_register(__class__.mac_addr, mac_bytes)
             print(write_ok)
             if write_ok:
@@ -127,16 +121,18 @@ class ConnectModule:
             self.print_con_is_not_ok()
 
     def dhcp_off(self):
-        if self.cl_is_ok:
-            write_ok = self.cl.write_single_register(__class__.dhcp_addr, 0)
-            if write_ok:
+        if self.cl.connected:
+            write_response = self.cl.write_register(__class__.dhcp_addr, 0)
+            if not write_response.isError():
                 print(f'DHCP -> OFF')
+            else:
+                print("не хаписано")
         else:
             self.print_con_is_not_ok()
 
     def dhcp_on(self):
-        if self.cl_is_ok:
-            write_ok = self.cl.write_single_register(__class__.dhcp_addr, 1)
+        if self.cl.connected:
+            write_ok = self.cl.write_register(__class__.dhcp_addr, 1)
             if write_ok:
                 print(f'DHCP -> ON')
         else:
@@ -151,12 +147,12 @@ class ConnectModule:
         # mac_info = self.cl.read_holding_registers(__class__.mac_addr, 3)     # - dhcp_off только в Init
         # print(ip)
 
-        if self.cl_is_ok:
+        if self.cl.connected:
             # ip_bytes = bytes.fromhex(' '.join(map(str, ip)))
             # print(ip_bytes)
             # print(len(mac_bytes))
 
-            ip_change = self.cl.write_multiple_registers(__class__.ip_addr, ip)
+            ip_change = self.cl.write_registers(__class__.ip_addr, ip)
             print(ip_change)
             if ip_change:
                 print(f'IP -> Changed')
@@ -164,15 +160,25 @@ class ConnectModule:
             self.print_con_is_not_ok()
 
     def print_con_is_not_ok(self):
-        print('Connect is Not OK')
+        print('Connect failed')
 
+    def close(self):
+        if self.cl.connected:
+            print(f'Disconnected  from {self.host}:{cnf.SERVER_PORT}:{cnf.MODULE_NAME}')
+            self.cl.close()
 
 def main():
-    c = ConnectModule(cnf.LOCAL_IP)
-    while True:
-        c.get_info_module() 
-        # c.change_mac()
-        time.sleep(5)
+    c = ConnectModule(cnf.LOCAL_HOST)
+    try:
+        while True:
+            c.dhcp_off() 
+            # c.get_info_module()
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("Остановка программы пользователем.")
+        c.close()
+    except Exception as e:
+        print((f"Произошла ошибка: {e}"))
 
 
 if __name__ == '__main__':

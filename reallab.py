@@ -6,11 +6,11 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QGr
     QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QDesktopWidget, QLineEdit
 # from win32api import GetFiletitleInfo
 import config.config as cnf
-from pyModbusTCP.client import ModbusClient
+# from pyModbusTCP.client import ModbusClient
 from collections import namedtuple
 # from data_reallab import Module
 from connect_module import ConnectModule 
-from orm import Module, DbSession
+# from orm import Module, DbSession
 
  
 class MainWindow(QMainWindow):
@@ -23,11 +23,10 @@ class MainWindow(QMainWindow):
         self.width = 550
         self.height = 200
         self.dict_module = dict()
-        self.orm_base_modules = Module()
+        # self.orm_base_modules = Module()
+        self.is_connected = False
         # self.create_database()     # только для создания базы
         self.setup_ui(self.title)
-        self.cl = ConnectModule(host=cnf.LOCAL_HOST)
-        print(1)
     
     def setup_ui(self, title) -> None:
         # qtRectangle = self.frameGeometry()   # получение размеров окна 
@@ -36,26 +35,31 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(title)
 
         # первый слой 
-        btn_mac = QPushButton('Change MAC')
-        btn_mac.clicked.connect(self.change_mac)
+        self.btn_mac = QPushButton('Change MAC')
+        self.btn_mac.clicked.connect(self.change_mac)
+        self.btn_mac.setEnabled(False)
         
-        btn_dhcp_off = QPushButton('DHCP off')
-        btn_dhcp_off.clicked.connect(self.dhcp_off)
+        self.btn_dhcp_off = QPushButton('DHCP off')
+        self.btn_dhcp_off.clicked.connect(self.dhcp_off)
+        self.btn_dhcp_off.setEnabled(False)
 
-        btn_dhcp_on = QPushButton('DHCP on')
-        btn_dhcp_on.clicked.connect(self.dhcp_on)
+        self.btn_dhcp_on = QPushButton('DHCP on')
+        self.btn_dhcp_on.clicked.connect(self.dhcp_on)
+        self.btn_dhcp_on.setEnabled(False)
         dhcp_lay = QHBoxLayout()
-        dhcp_lay.addWidget(btn_dhcp_off)
-        dhcp_lay.addWidget(btn_dhcp_on)
+        dhcp_lay.addWidget(self.btn_dhcp_off)
+        dhcp_lay.addWidget(self.btn_dhcp_on)
         self.dhcp_GroupBox = QGroupBox("DHCP on\off")
         self.dhcp_GroupBox.setLayout(dhcp_lay)
 
 
-        btn_info = QPushButton('Get info module')
-        btn_info.clicked.connect(self.get_info_module)
-        
-        btn_change_ip = QPushButton('Change IP')
-        btn_change_ip.clicked.connect(self.change_ip)
+        self.btn_info = QPushButton('Get info module')
+        self.btn_info.clicked.connect(self.get_info_module)
+        self.btn_info.setEnabled(False)
+
+        self.btn_change_ip = QPushButton('Change IP')
+        self.btn_change_ip.clicked.connect(self.change_ip)
+        self.btn_change_ip.setEnabled(False)
 
         # list_module = ['NLS-16DI-Ethernet', 'NLS-16DO-Ethernet', 'NLS-8R-Ethernet']
         self.combobox_module = QComboBox()
@@ -66,7 +70,7 @@ class MainWindow(QMainWindow):
         self.combobox_number.addItems(self.dict_module.keys())
         self.combobox_number.setCurrentIndex(1)
 
-        defautl_ip = cnf.DEFAULT_IP
+        defautl_ip = cnf.SERVER_HOST
         # defautl_ip = cnf.LOCAL_IP
         self.ql_edit  = QLineEdit()
         self.ql_edit.setText(defautl_ip.split('.')[0])
@@ -90,37 +94,73 @@ class MainWindow(QMainWindow):
         fisrt_lay.addWidget(self.combobox_module)
         fisrt_lay.addWidget(QLabel('Ввод заводского номера модуля'))
         fisrt_lay.addWidget(self.combobox_number)
-        fisrt_lay.addWidget(btn_mac)
+        fisrt_lay.addWidget(self.btn_mac)
         fisrt_lay.addWidget(self.dhcp_GroupBox)
-        fisrt_lay.addWidget(btn_info)
+        fisrt_lay.addWidget(self.btn_info)
         fisrt_lay.addWidget(self.ip_GroupBox)
-        fisrt_lay.addWidget(btn_change_ip)
+        fisrt_lay.addWidget(self.btn_change_ip)
         
 
         self.first_GroupBox = QGroupBox()
         self.first_GroupBox.setLayout(fisrt_lay)
         
         # второй слой 
+        second_lay = QVBoxLayout()
+        ip = QLineEdit()
+        ip.setText(cnf.LOCAL_HOST)
+        ip.setFixedWidth(100)
+        second_lay.addWidget(ip)
+        self.btn_connect = QPushButton('Connect to module')
+        self.btn_connect.clicked.connect(lambda: self.connected_to_module(ip.text()))
+        self.btn_connect.setEnabled(True)
+        second_lay.addWidget(self.btn_connect)
+        self.btn_disconnect = QPushButton('Disconnect from module')
+        self.btn_disconnect.clicked.connect(self.disconnected_from_module)
+        self.btn_disconnect.setEnabled(False)
+        second_lay.addWidget(self.btn_disconnect)
+
+        second_GroupBox = QGroupBox("Connect\Disconnect")
+        second_GroupBox.setLayout(second_lay)
+        
         self.ql_info = QLabel()
-        self.second_lay = QHBoxLayout()
-        self.second_lay.addWidget(self.ql_info)
-        self.second_GroupBox = QGroupBox()
-        self.second_GroupBox.setLayout(self.second_lay)
+        second_lay.addWidget(self.ql_info)
+        
 
         # main_layout
         main_layout = QVBoxLayout()
+        main_layout.addWidget(second_GroupBox)
         main_layout.addWidget(self.first_GroupBox)
-        main_layout.addWidget(self.second_GroupBox)
 
         wid = QWidget(self)
         self.setCentralWidget(wid)
         wid.setLayout(main_layout)
 
-    def is_con_ok(self):
-        # print('is_con_ok')
-        # while True:
-        self.cl.connect_to_module()
-            # time.sleep(cnf.TIME_TO_CONNECT)
+    def connected_to_module(self, host=cnf.LOCAL_HOST):
+        if not self.is_connected:
+            self.cl = ConnectModule(host=host)
+            if self.cl.cl.connected: 
+                self.is_connected = True
+                self.btn_disconnect.setEnabled(True)
+                self.btn_connect.setEnabled(False)
+                self.btn_change_ip.setEnabled(True)
+                self.btn_dhcp_off.setEnabled(True)
+                self.btn_dhcp_on.setEnabled(True)
+                self.btn_info.setEnabled(True)
+                self.btn_mac.setEnabled(True)
+        else:
+            print("Is connected")
+
+    def disconnected_from_module(self):
+        if self.is_connected:
+            self.is_connected = False
+            self.btn_connect.setEnabled(True)
+            self.btn_disconnect.setEnabled(False)
+            self.btn_change_ip.setEnabled(False)
+            self.btn_dhcp_off.setEnabled(False)
+            self.btn_dhcp_on.setEnabled(False)
+            self.btn_info.setEnabled(False)
+            self.btn_mac.setEnabled(False)
+            self.cl.close()
 
     def create_database(self):
                 with open(cnf.LIST_FILE, '+r', encoding=cnf.ENCODING) as f:
@@ -140,7 +180,7 @@ class MainWindow(QMainWindow):
                                     db_session.add(new_entry)
                     print(f'items in {cnf.LIST_FILE}-> {i}')
 
-    def read_data(self):
+    def read_data_from_database(self):
         with DbSession() as db_session:
             db_session.query(Movie).all()
 
@@ -182,20 +222,20 @@ class MainWindow(QMainWindow):
         self.get_info_module()
 
     def dhcp_off(self) -> None:
-        self.cl.dhcp_off()
-        time.sleep(1)
-        self.get_info_module()
+        if self.is_connected:
+            self.cl.dhcp_off()
+            time.sleep(1)
+            # self.get_info_module()
 
     def dhcp_on(self) -> None:
-        self.cl.dhcp_on()
-        time.sleep(1)
-        self.get_info_module()
+        if self.is_connected:
+            self.cl.dhcp_on()
+            time.sleep(1)
+            self.is_connected = False
+            # self.get_info_module()
 
     def get_info_module(self):
-        if self.cl.con_is_ok:
-            self.ql_info.setText(self.cl.get_info_module())
-        else:
-            print("Don't connect to module")
+        self.ql_info.setText(self.cl.get_info_module())
 
     def log_message(self) -> None:
         """
@@ -224,18 +264,14 @@ def main():
     app = QApplication(sys_argv)
     ex = MainWindow("#0.0.0.0")
     ex.show()
-    ex.get_info_module()
 
-    #TODO
-    # while перевести на asich
-    while True:
-        ex.is_con_ok()
-        # print('main while')
-        try:
-            sys.exit(app.exec())
-            time.sleep(cnf.TIME_TO_CONNECT)
-        except:
-            print("Пока")
+    try:
+        sys.exit(app.exec())
+    except SystemExit:
+        print("Пока")
+        # if ex.is_connected: 
+        #     print("закрыть соединение") # Проверка, если соединение установлено
+        #     ex.diconnected_from_module()
 
 if __name__ == '__main__':
     main()
